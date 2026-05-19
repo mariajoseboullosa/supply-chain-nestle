@@ -47,6 +47,7 @@ export interface ProductInsight {
 
 export interface ProductFinancials {
   skuCode: string;
+  unitPrice: number;
   marginPercent: number;
   marginTarget: number;
   revenueForecast: number;

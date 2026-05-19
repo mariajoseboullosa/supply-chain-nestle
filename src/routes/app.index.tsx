@@ -25,6 +25,8 @@ import {
   Legend,
 } from "recharts";
 import { useEffect, useMemo, useState } from "react";
+import { CLEANING_CHANGED_EVENT } from "@/lib/cleaning";
+import { DATA_CHANGED_EVENT } from "@/lib/data";
 import { INSIGHTS_CHANGED_EVENT } from "@/lib/insights";
 import {
   CheckCircle2,
@@ -55,10 +57,15 @@ function Dashboard() {
   const [insightsTick, setInsightsTick] = useState(0);
 
   useEffect(() => {
-    const onInsightsChange = () => setInsightsTick((t) => t + 1);
-    window.addEventListener(INSIGHTS_CHANGED_EVENT, onInsightsChange);
-    return () =>
-      window.removeEventListener(INSIGHTS_CHANGED_EVENT, onInsightsChange);
+    const refresh = () => setInsightsTick((t) => t + 1);
+    window.addEventListener(INSIGHTS_CHANGED_EVENT, refresh);
+    window.addEventListener(DATA_CHANGED_EVENT, refresh);
+    window.addEventListener(CLEANING_CHANGED_EVENT, refresh);
+    return () => {
+      window.removeEventListener(INSIGHTS_CHANGED_EVENT, refresh);
+      window.removeEventListener(DATA_CHANGED_EVENT, refresh);
+      window.removeEventListener(CLEANING_CHANGED_EVENT, refresh);
+    };
   }, []);
 
   const dashboard = useMemo(

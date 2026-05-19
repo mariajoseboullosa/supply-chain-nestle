@@ -9,7 +9,14 @@ export type AlertType =
   | "tracking_signal"
   | "stockout_risk"
   | "margin_below_target"
-  | "critical_sku_no_insights";
+  | "critical_sku_no_insights"
+  | "unit_cost_spike"
+  | "revenue_below_baseline"
+  | "pessimistic_negative_margin"
+  | "cleaning_unclassified_outliers"
+  | "cleaning_high_outlier_ratio"
+  | "cleaning_coyuntural_baseline"
+  | "cleaning_unexplained_drop";
 
 export interface Alert {
   id: string;

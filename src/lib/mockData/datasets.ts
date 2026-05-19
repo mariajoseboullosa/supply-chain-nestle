@@ -17,11 +17,54 @@ import {
   generateMonthlyHistory,
   generateWeeklyForecast,
 } from "./generators";
+import { getGeneratedDemand } from "@/lib/data";
+import { getSkuCleaning } from "@/lib/cleaning";
 import type {
   DemoCatalog,
   SkuChannelPlanningContext,
   SkuPlanningBundle,
 } from "./types";
+
+function mergeLoadedBundle(bundle: SkuPlanningBundle): SkuPlanningBundle {
+  const loaded = getGeneratedDemand();
+  const skuData = loaded?.bySku[bundle.product.code];
+  const cleaned = getSkuCleaning(bundle.product.code);
+
+  let merged: SkuPlanningBundle = bundle;
+
+  if (skuData) {
+    merged = {
+      ...merged,
+      monthlyHistory:
+        skuData.monthlyHistory.length > 0
+          ? skuData.monthlyHistory
+          : merged.monthlyHistory,
+      weeklyForecast:
+        skuData.weeklyForecast.length > 0
+          ? skuData.weeklyForecast
+          : merged.weeklyForecast,
+      channelForecasts: skuData.channelForecasts.some((c) => c.baseline > 0)
+        ? skuData.channelForecasts
+        : merged.channelForecasts,
+    };
+  }
+
+  if (cleaned) {
+    merged = {
+      ...merged,
+      monthlyHistory:
+        cleaned.monthlyHistory.length > 0
+          ? cleaned.monthlyHistory
+          : merged.monthlyHistory,
+      weeklyForecast:
+        cleaned.weeklyForecast.length > 0
+          ? cleaned.weeklyForecast
+          : merged.weeklyForecast,
+    };
+  }
+
+  return merged;
+}
 
 function skuChannelKey(skuCode: string, channelKey: string): string {
   return `${skuCode}::${channelKey}`;
@@ -117,7 +160,9 @@ export function getDemoCatalog(): DemoCatalog {
 }
 
 export function getSkuBundle(skuCode: string): SkuPlanningBundle | undefined {
-  return getDemoCatalog().bySku[skuCode];
+  const bundle = getDemoCatalog().bySku[skuCode];
+  if (!bundle) return undefined;
+  return mergeLoadedBundle(bundle);
 }
 
 export function getSkuChannelContext(

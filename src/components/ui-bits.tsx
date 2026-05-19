@@ -54,7 +54,16 @@ export function Badge({ children, tone = "default" }: { children: ReactNode; ton
 }
 
 export function Semaforo({ estado }: { estado: string }) {
-  const map: Record<string, "good"|"warn"|"bad"> = { OK: "good", Revisar: "warn", "Atención": "bad", Aprobado: "good", Pendiente: "warn", "En revisión": "info" as any };
+  const map: Record<string, "good"|"warn"|"bad"> = {
+    OK: "good",
+    Revisar: "warn",
+    "Atención": "bad",
+    Aprobado: "good",
+    Pendiente: "warn",
+    "En revisión": "info" as any,
+    "Bajo target": "warn",
+    Crítico: "bad",
+  };
   const t = (map[estado] ?? "default") as any;
   return <Badge tone={t}>{estado}</Badge>;
 }

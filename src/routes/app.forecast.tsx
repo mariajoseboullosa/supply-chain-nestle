@@ -1,5 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { PageHeader, Card, Badge, LockedNotice } from "@/components/ui-bits";
+import { CLEANING_CHANGED_EVENT, hasCleanedDemand } from "@/lib/cleaning";
+import { DATA_CHANGED_EVENT, hasLoadedDemand } from "@/lib/data";
 import { getHistoryActuals, getSkuBundle } from "@/lib/mockData";
 import {
   runAllModels,
@@ -55,8 +57,22 @@ function Forecast() {
   const [modelResults, setModelResults] = useState<ForecastModelResult[]>([]);
   const [bestModel, setBestModel] = useState<ForecastModelResult | null>(null);
   const [activeModel, setActiveModel] = useState<ForecastModelResult | null>(null);
+  const [dataTick, setDataTick] = useState(0);
 
-  const bundle = useMemo(() => getSkuBundle(product.code), [product.code]);
+  useEffect(() => {
+    const refresh = () => setDataTick((t) => t + 1);
+    window.addEventListener(DATA_CHANGED_EVENT, refresh);
+    window.addEventListener(CLEANING_CHANGED_EVENT, refresh);
+    return () => {
+      window.removeEventListener(DATA_CHANGED_EVENT, refresh);
+      window.removeEventListener(CLEANING_CHANGED_EVENT, refresh);
+    };
+  }, []);
+
+  const bundle = useMemo(
+    () => getSkuBundle(product.code),
+    [product.code, dataTick],
+  );
 
   const readOptions = useCallback((): ForecastModelOptions => {
     const horizonRaw = Number(horizonRef.current?.value);
@@ -85,7 +101,7 @@ function Forecast() {
         toast.success(`Corriendo ${pipeline.results.length} modelos…`);
       }
     },
-    [product.code, readOptions],
+    [product.code, readOptions, dataTick],
   );
 
   useEffect(() => {
@@ -121,7 +137,7 @@ function Forecast() {
     <div>
       <PageHeader
         title="Forecast"
-        subtitle={`Comparación de modelos · ${product.name}`}
+        subtitle={`Comparación de modelos · ${product.name}${hasLoadedDemand() ? " · datos cargados" : ""}${hasCleanedDemand(product.code) ? " · serie limpia" : ""}`}
         actions={
           <>
             {activeModel && (

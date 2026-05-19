@@ -1,11 +1,25 @@
 import {
   computeInsightDelta,
+  getInsights,
   type CollaborativeInsight,
 } from "@/lib/insights";
 
 function matchesChannel(insight: CollaborativeInsight, channel?: string): boolean {
   if (!channel) return true;
   return insight.channel === "Todos" || insight.channel === channel;
+}
+
+/** Insights aprobados desde localStorage (semilla mockData). */
+export function getActiveInsights(
+  skuCode?: string,
+  channel?: string,
+): CollaborativeInsight[] {
+  return getInsights().filter(
+    (i) =>
+      i.estado_aprobacion === "aprobado" &&
+      (!skuCode || i.skuCode === skuCode) &&
+      matchesChannel(i, channel),
+  );
 }
 
 export function getApprovedForProduct(

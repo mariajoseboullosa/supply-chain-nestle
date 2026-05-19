@@ -111,12 +111,18 @@ const FINANCIAL_OVERRIDES: Record<string, Partial<ProductFinancials>> = {
 export function buildFinancials(product: Product): ProductFinancials {
   const seed = product.code.charCodeAt(0);
   const override = FINANCIAL_OVERRIDES[product.code];
+  const costPerUnit = override?.costPerUnit ?? 120 + (seed % 40);
+  const marginPercent = override?.marginPercent ?? 20 + (seed % 5);
+  const unitPrice =
+    override?.unitPrice ??
+    Math.round(costPerUnit / Math.max(0.15, 1 - marginPercent / 100));
   return {
     skuCode: product.code,
-    marginPercent: override?.marginPercent ?? 20 + (seed % 5),
+    unitPrice,
+    marginPercent,
     marginTarget: override?.marginTarget ?? 21,
     revenueForecast: override?.revenueForecast ?? 3_000_000 + seed * 10_000,
-    costPerUnit: 120 + (seed % 40),
+    costPerUnit,
   };
 }
 

@@ -6,7 +6,11 @@ import {
   ALERT_STATUS_LABELS,
   type Alert,
 } from "@/lib/alerts";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { CLEANING_CHANGED_EVENT } from "@/lib/cleaning";
+import { FINANCIAL_SIM_CHANGED_EVENT } from "@/lib/financial";
+import { DATA_CHANGED_EVENT } from "@/lib/data";
+import { INSIGHTS_CHANGED_EVENT } from "@/lib/insights";
 import { AlertTriangle, Plus, Bell } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
@@ -20,6 +24,9 @@ const REGLAS = [
   { regla: "Stockout proyectado < 5 días cobertura", severidad: "alta", activa: true },
   { regla: "Tracking signal fuera de ±4", severidad: "media", activa: true },
   { regla: "Margen por debajo de target", severidad: "media", activa: true },
+  { regla: "Costo unitario sube más de 15%", severidad: "media", activa: true },
+  { regla: "Revenue cae vs baseline", severidad: "media", activa: true },
+  { regla: "Escenario pesimista con margen negativo", severidad: "alta", activa: true },
   { regla: "SKU crítico sin insight cargado", severidad: "baja", activa: true },
 ];
 
@@ -40,10 +47,26 @@ function ControlTower() {
   const editable = canEdit("control-tower");
   const [showForm, setShowForm] = useState(false);
 
+  const [tick, setTick] = useState(0);
+
+  useEffect(() => {
+    const refresh = () => setTick((n) => n + 1);
+    window.addEventListener(INSIGHTS_CHANGED_EVENT, refresh);
+    window.addEventListener(FINANCIAL_SIM_CHANGED_EVENT, refresh);
+    window.addEventListener(DATA_CHANGED_EVENT, refresh);
+    window.addEventListener(CLEANING_CHANGED_EVENT, refresh);
+    return () => {
+      window.removeEventListener(INSIGHTS_CHANGED_EVENT, refresh);
+      window.removeEventListener(FINANCIAL_SIM_CHANGED_EVENT, refresh);
+      window.removeEventListener(DATA_CHANGED_EVENT, refresh);
+      window.removeEventListener(CLEANING_CHANGED_EVENT, refresh);
+    };
+  }, []);
+
   const { alerts, evaluatedAt } = useMemo(() => {
     const result = evaluateAlerts();
     return { alerts: result.alerts, evaluatedAt: result.evaluatedAt };
-  }, []);
+  }, [tick]);
 
   return (
     <div>
