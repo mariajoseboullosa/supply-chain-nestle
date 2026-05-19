@@ -1,6 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Outlet, Link, createRootRouteWithContext, useRouter, HeadContent, Scripts } from "@tanstack/react-router";
 import appCss from "../styles.css?url";
+import favicon from "../../nestle_logo.png?url";
 import { AuthProvider } from "@/lib/auth";
 import { ProductProvider } from "@/lib/product-context";
 import { Toaster } from "sonner";
@@ -38,7 +39,10 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { title: "Nestlé — Demand Planning Platform" },
       { name: "description", content: "Plataforma de Demand Planning y Forecasting Nestlé Argentina" },
     ],
-    links: [{ rel: "stylesheet", href: appCss }],
+    links: [
+      { rel: "stylesheet", href: appCss },
+      { rel: "icon", href: favicon },
+    ],
   }),
   shellComponent: RootShell,
   component: RootComponent,
