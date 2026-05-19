@@ -8,12 +8,10 @@ import type {
 } from "./types";
 import {
   formatDateIso,
-  normalizeChannel,
-  normalizeStatus,
   parseFlexibleDate,
-  parseQuantity,
 } from "./normalize";
 import { isMappingComplete } from "./parse";
+import { normalizeUploadedData } from "@/lib/dataNormalization";
 
 export function validateColumnMapping(
   mapping: ColumnMapping,
@@ -35,36 +33,34 @@ export function mapRowsToOrders(
     return { orders: [], errors: ["Completá el mapeo de columnas antes de validar."] };
   }
 
+  const normalizedRows = normalizeUploadedData(rows, mapping);
   const orders: OrderRecord[] = [];
   const errors: string[] = [];
 
-  rows.forEach((row, idx) => {
+  normalizedRows.forEach((row, idx) => {
     const line = idx + 2;
-    const get = (col: RequiredColumn) =>
-      String(row[mapping[col]!] ?? "").trim();
+    const emision = parseFlexibleDate(row.date);
+    const entrega = parseFlexibleDate(row.deliveryDate);
+    const cantidad = row.quantity;
+    const estado = row.status;
+    const canal = row.channel;
 
-    const emision = parseFlexibleDate(get("fecha_emision"));
-    const entrega = parseFlexibleDate(get("fecha_entrega"));
-    const cantidad = parseQuantity(get("cantidad"));
-    const estado = normalizeStatus(get("estado"));
-    const canal = normalizeChannel(get("tipo_canal"));
-
-    if (!emision) errors.push(`Fila ${line}: fecha_emision inválida`);
-    if (!entrega) errors.push(`Fila ${line}: fecha_entrega inválida`);
-    if (cantidad == null) errors.push(`Fila ${line}: cantidad no numérica`);
+    if (!emision) errors.push(`Fila ${line}: fecha inválida`);
+    if (!entrega) errors.push(`Fila ${line}: fecha inválida`);
+    if (cantidad == null || !Number.isFinite(cantidad)) errors.push(`Fila ${line}: cantidad no numérica`);
     if (!estado) errors.push(`Fila ${line}: estado inválido`);
     if (!canal) errors.push(`Fila ${line}: canal inválido`);
 
-    if (!emision || !entrega || cantidad == null || !estado || !canal) return;
+    if (!emision || !entrega || cantidad == null || !Number.isFinite(cantidad) || !estado || !canal) return;
 
     orders.push({
-      id: `OC-${line}-${get("producto_codigo")}`,
+      id: `OC-${line}-${row.sku}`,
       fecha_emision: formatDateIso(emision),
       tipo_canal: canal,
-      nombre_canal: get("nombre_canal"),
-      locacion: get("locacion"),
-      producto_nombre: get("producto_nombre"),
-      producto_codigo: get("producto_codigo").toUpperCase(),
+      nombre_canal: row.customer || "Cliente desconocido",
+      locacion: String(row.raw.locacion ?? "").trim(),
+      producto_nombre: row.productName,
+      producto_codigo: row.sku.toUpperCase(),
       cantidad,
       fecha_entrega: formatDateIso(entrega),
       estado,

@@ -9,6 +9,7 @@ import {
   type ForecastModelOptions,
   type ForecastModelResult,
 } from "@/lib/forecasting";
+import { generateFallbackSeries } from "@/lib/dataNormalization";
 import { useProduct } from "@/lib/product-context";
 import {
   LineChart,
@@ -45,11 +46,29 @@ function runForecastPipeline(
   productCode: string,
   options?: ForecastModelOptions,
 ): { results: ForecastModelResult[]; best: ForecastModelResult } | null {
-  const history = getHistoryActuals(productCode);
-  if (history.length < 3) return null;
+  const bundle = getSkuBundle(productCode);
+  if (!bundle) return null;
+
+  const historyActuals = getHistoryActuals(productCode);
+  const baselineHistory = historyActuals.length >= 3
+    ? historyActuals
+    : bundle.monthlyHistory
+        .map((m) => (m.actual != null ? m.actual : m.baseline))
+        .filter(Number.isFinite);
+
+  const history = baselineHistory.length >= 3
+    ? baselineHistory
+    : generateFallbackSeries(baselineHistory, 3);
 
   const results = runAllModels(history, options);
   const best = selectBestModel(history, options);
+
+  console.info("Forecast pipeline:", {
+    productCode,
+    historyLength: history.length,
+    selectedModel: best.modelName,
+  });
+
   return { results, best };
 }
 

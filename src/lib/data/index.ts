@@ -49,3 +49,11 @@ export {
 export { downloadOrdersTemplate } from "./template";
 export { exportOrdersCsv } from "./export";
 export { ordersFromMock } from "./demo";
+
+export {
+  normalizeUploadedData,
+  validateDataset,
+  fillMissingPeriods,
+  aggregateDemand,
+  generateFallbackSeries,
+} from "../dataNormalization";

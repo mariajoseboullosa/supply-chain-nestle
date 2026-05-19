@@ -8,6 +8,7 @@ import {
   calculateTrackingSignal,
   type ActualForecastPair,
 } from "@/lib/analytics";
+import { generateFallbackSeries } from "@/lib/dataNormalization";
 import { evaluateAlerts, filterAlerts } from "@/lib/alerts";
 import type { Alert } from "@/lib/alerts";
 import { selectBestModel } from "@/lib/forecasting";
@@ -115,11 +116,25 @@ function computeInStockPct(bundle: SkuPlanningBundle): number {
 
 export function buildDashboardData(productCode: string): DashboardData | null {
   const bundle = getSkuBundle(productCode);
-  const history = getHistoryActuals(productCode);
+  if (!bundle) return null;
 
-  if (!bundle || history.length < 3) return null;
+  const actualHistory = getHistoryActuals(productCode);
+  const baselineHistory = actualHistory.length >= 3
+    ? actualHistory
+    : bundle.monthlyHistory
+        .map((m) => (m.actual != null ? m.actual : m.baseline))
+        .filter(Number.isFinite);
+  const history = baselineHistory.length >= 3
+    ? baselineHistory
+    : generateFallbackSeries(baselineHistory, 3);
 
   const best = selectBestModel(history, { horizon: 3 });
+
+  console.info("Dashboard build:", {
+    productCode,
+    historyLength: history.length,
+    bestModel: best.modelName,
+  });
   const insights = getInsights();
   const pairs = buildInSamplePairs(bundle, best.fittedValues);
   const actuals = pairs.map((p) => p.actual);

@@ -147,13 +147,34 @@ function Datos() {
 
   const handleGenerateDemand = useCallback(() => {
     if (!editable || orders.length === 0) return;
-    const demand = generateDemandBase(orders, dataSource === "demo" ? "demo" : "upload");
+    
+    // Determinar la fuente: si fue cargado desde archivo, es "upload"; si es demo, es "demo"
+    const isDemo = raw === null && dataSource === "demo";
+    const source = isDemo ? "demo" : "upload";
+    
+    const demand = generateDemandBase(orders, source);
     persistDataPipeline(orders, mapping, demand);
     setStep(3);
+    
+    const skuCount = Object.keys(demand.bySku).length;
+    const totalRecords = orders.length;
+    const channels = [...new Set(orders.map(o => o.tipo_canal))].length;
+    const dateFrom = Math.min(...orders.map(o => new Date(o.fecha_emision).getTime()));
+    const dateTo = Math.max(...orders.map(o => new Date(o.fecha_emision).getTime()));
+    
+    console.info("Demanda base generada:", {
+      skuCount,
+      totalRecords,
+      channels,
+      dateFrom: new Date(dateFrom).toISOString().split('T')[0],
+      dateTo: new Date(dateTo).toISOString().split('T')[0],
+      source,
+    });
+    
     toast.success(
-      `Demanda base generada para ${Object.keys(demand.bySku).length} SKUs`,
+      `✓ Demanda base generada: ${skuCount} SKUs, ${totalRecords} registros, ${channels} canales`
     );
-  }, [editable, orders, mapping, dataSource]);
+  }, [editable, orders, mapping, dataSource, raw]);
 
   const loadDemo = useCallback(() => {
     if (!editable) return;
@@ -341,87 +362,108 @@ function Datos() {
       )}
 
       {step >= 2 && preview && (
-        <Card title="Vista previa" className="mb-6">
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-4 text-sm">
-            <div>
-              <div className="text-xs text-muted-foreground">Registros</div>
-              <div className="font-semibold">{preview.totalRows}</div>
+        <>
+          <Card title="Vista previa" className="mb-6">
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-4 text-sm">
+              <div>
+                <div className="text-xs text-muted-foreground">Registros</div>
+                <div className="font-semibold">{preview.totalRows}</div>
+              </div>
+              <div>
+                <div className="text-xs text-muted-foreground">SKUs</div>
+                <div className="font-semibold">{preview.skuCount}</div>
+              </div>
+              <div>
+                <div className="text-xs text-muted-foreground">Canales</div>
+                <div className="font-semibold">{preview.channelCount}</div>
+              </div>
+              <div>
+                <div className="text-xs text-muted-foreground">Desde</div>
+                <div className="font-semibold">{preview.dateFrom ?? "—"}</div>
+              </div>
+              <div>
+                <div className="text-xs text-muted-foreground">Hasta</div>
+                <div className="font-semibold">{preview.dateTo ?? "—"}</div>
+              </div>
             </div>
-            <div>
-              <div className="text-xs text-muted-foreground">SKUs</div>
-              <div className="font-semibold">{preview.skuCount}</div>
-            </div>
-            <div>
-              <div className="text-xs text-muted-foreground">Canales</div>
-              <div className="font-semibold">{preview.channelCount}</div>
-            </div>
-            <div>
-              <div className="text-xs text-muted-foreground">Desde</div>
-              <div className="font-semibold">{preview.dateFrom ?? "—"}</div>
-            </div>
-            <div>
-              <div className="text-xs text-muted-foreground">Hasta</div>
-              <div className="font-semibold">{preview.dateTo ?? "—"}</div>
-            </div>
-          </div>
-          {validationErrors.length > 0 && (
-            <div className="mb-3 text-xs text-destructive space-y-1">
-              {validationErrors.map((e) => (
-                <div key={e}>{e}</div>
-              ))}
-            </div>
-          )}
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="text-left text-xs text-muted-foreground border-b">
-                <tr>
-                  {[
-                    "Fecha",
-                    "Canal",
-                    "Cliente",
-                    "Producto",
-                    "SKU",
-                    "Cant.",
-                    "Entrega",
-                    "Estado",
-                  ].map((h) => (
-                    <th key={h} className="py-2 px-2 font-medium">
-                      {h}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {preview.previewRows.map((o) => (
-                  <tr key={o.id} className="border-b last:border-0">
-                    <td className="py-2 px-2">{o.fecha_emision}</td>
-                    <td className="py-2 px-2">{o.tipo_canal}</td>
-                    <td className="py-2 px-2">{o.nombre_canal}</td>
-                    <td className="py-2 px-2">{o.producto_nombre}</td>
-                    <td className="py-2 px-2 font-mono text-xs">{o.producto_codigo}</td>
-                    <td className="py-2 px-2">{o.cantidad}</td>
-                    <td className="py-2 px-2">{o.fecha_entrega}</td>
-                    <td className="py-2 px-2">
-                      <Badge
-                        tone={
-                          o.estado === "entregado"
-                            ? "good"
-                            : o.estado === "cancelado"
-                              ? "bad"
-                              : o.estado === "postergado"
-                                ? "warn"
-                                : "info"
-                        }
-                      >
-                        {o.estado}
-                      </Badge>
-                    </td>
-                  </tr>
+            {validationErrors.length > 0 && (
+              <div className="mb-3 text-xs text-destructive space-y-1">
+                {validationErrors.map((e) => (
+                  <div key={e}>{e}</div>
                 ))}
-              </tbody>
-            </table>
-          </div>
-        </Card>
+              </div>
+            )}
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="text-left text-xs text-muted-foreground border-b">
+                  <tr>
+                    {[
+                      "Fecha",
+                      "Canal",
+                      "Cliente",
+                      "Producto",
+                      "SKU",
+                      "Cant.",
+                      "Entrega",
+                      "Estado",
+                    ].map((h) => (
+                      <th key={h} className="py-2 px-2 font-medium">
+                        {h}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {preview.previewRows.map((o) => (
+                    <tr key={o.id} className="border-b last:border-0">
+                      <td className="py-2 px-2">{o.fecha_emision}</td>
+                      <td className="py-2 px-2">{o.tipo_canal}</td>
+                      <td className="py-2 px-2">{o.nombre_canal}</td>
+                      <td className="py-2 px-2">{o.producto_nombre}</td>
+                      <td className="py-2 px-2 font-mono text-xs">{o.producto_codigo}</td>
+                      <td className="py-2 px-2">{o.cantidad}</td>
+                      <td className="py-2 px-2">{o.fecha_entrega}</td>
+                      <td className="py-2 px-2">
+                        <Badge
+                          tone={
+                            o.estado === "entregado"
+                              ? "good"
+                              : o.estado === "cancelado"
+                                ? "bad"
+                                : o.estado === "postergado"
+                                  ? "warn"
+                                  : "info"
+                          }
+                        >
+                          {o.estado}
+                        </Badge>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </Card>
+
+          {orders.length > 0 && step === 2 && (
+            <Card title="Siguiente paso" className="mb-6 bg-nestle-red/5 border-nestle-red/20">
+              <div className="space-y-3">
+                <p className="text-sm">
+                  Los datos han sido cargados y validados correctamente. Ahora generá la demanda base para que Forecast y Dashboard puedan procesarla.
+                </p>
+                <button
+                  type="button"
+                  disabled={!editable || orders.length === 0}
+                  onClick={handleGenerateDemand}
+                  className="w-full h-10 rounded-md bg-nestle-red text-white font-semibold flex items-center justify-center gap-2 disabled:opacity-50"
+                >
+                  <Database className="size-5" />
+                  Generar demanda base
+                </button>
+              </div>
+            </Card>
+          )}
+        </>
       )}
 
       <Card
@@ -499,14 +541,6 @@ function Datos() {
             >
               <Download className="size-3.5" />
               Exportar
-            </button>
-            <button
-              type="button"
-              disabled={!editable || orders.length === 0}
-              onClick={handleGenerateDemand}
-              className="h-8 px-3 rounded bg-nestle-green text-white text-sm disabled:opacity-50"
-            >
-              Generar demanda base
             </button>
           </div>
         }

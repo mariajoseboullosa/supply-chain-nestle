@@ -9,6 +9,7 @@ import {
   monthLabel,
   parseFlexibleDate,
 } from "./normalize";
+import { fillMissingPeriods } from "@/lib/dataNormalization";
 import type {
   GeneratedDemandStore,
   OrderRecord,
@@ -47,6 +48,30 @@ export function buildWeeklyAggregates(
   return [...map.values()].sort((a, b) => a.week.localeCompare(b.week));
 }
 
+function fillMissingMonthlyHistory(
+  byMonth: Map<number, { label: string; actual: number }>,
+): MonthlyDemandPoint[] {
+  if (byMonth.size === 0) return [];
+  const keys = [...byMonth.keys()].sort((a, b) => a - b);
+  const start = keys[0]!;
+  const end = keys[keys.length - 1]!;
+  const result: MonthlyDemandPoint[] = [];
+
+  for (let cursor = start; cursor <= end; cursor += 1) {
+    const value = byMonth.get(cursor);
+    const label = value?.label ?? monthLabel(new Date(Math.floor(cursor / 12), cursor % 12, 1));
+    const actual = value?.actual ?? 0;
+    result.push({
+      month: label,
+      actual,
+      baseline: actual,
+      consensus: actual,
+    });
+  }
+
+  return result;
+}
+
 function buildMonthlyHistory(
   orders: OrderRecord[],
   skuCode: string,
@@ -65,14 +90,7 @@ function buildMonthlyHistory(
     byMonth.set(sort, prev);
   }
 
-  return [...byMonth.entries()]
-    .sort((a, b) => a[0] - b[0])
-    .map(([, v]) => ({
-      month: v.label,
-      actual: v.actual,
-      baseline: v.actual,
-      consensus: v.actual,
-    }));
+  return fillMissingMonthlyHistory(byMonth);
 }
 
 function buildWeeklyForecast(
@@ -83,35 +101,54 @@ function buildWeeklyForecast(
     .filter((a) => a.skuCode === skuCode)
     .sort((a, b) => a.week.localeCompare(b.week));
 
-  return weeks.map((w) => {
-    const baseDem = w.deliveredQty;
-    const signalAdj = Math.round((w.pendingQty - w.postponedQty) * 0.15);
-    const consenso = baseDem + signalAdj;
-    const weekLabel = w.week.includes("-W")
-      ? `S${w.week.split("-W")[1]}`
-      : w.week;
-    return {
-      week: weekLabel,
-      actual: w.deliveredQty,
-      baseline: baseDem,
-      consensus: consenso,
-    };
-  });
+  const rawWeekly = weeks.map((w) => ({
+    period: w.week.includes("-W") ? `S${w.week.split("-W")[1]}` : w.week,
+    value: w.deliveredQty,
+  }));
+
+  const filled = fillMissingPeriods(rawWeekly, "weekly");
+  const complete = [...filled];
+
+  while (complete.length < 13) {
+    const last = complete[complete.length - 1]!;
+    const nextIndex = complete.length + 1;
+    const nextValue = Math.round(
+      last.value + (complete.length > 1 ? last.value - complete[complete.length - 2]!.value : 0),
+    );
+    complete.push({
+      period: `S${nextIndex}`,
+      value: Math.max(0, nextValue),
+    });
+  }
+
+  return complete.map((w, index) => ({
+    week: `S${index + 1}`,
+    actual: w.value,
+    baseline: w.value,
+    consensus: w.value,
+  }));
 }
 
 function buildChannelForecasts(
   orders: OrderRecord[],
   skuCode: string,
 ): ChannelForecastPoint[] {
-  const totals = new Map<string, number>();
+  const deliveredTotals = new Map<string, number>();
+  const totalOrders = new Map<string, number>();
 
   for (const o of orders) {
-    if (o.producto_codigo !== skuCode || o.estado !== "entregado") continue;
-    totals.set(o.tipo_canal, (totals.get(o.tipo_canal) ?? 0) + o.cantidad);
+    if (o.producto_codigo !== skuCode) continue;
+    if (o.estado === "entregado") {
+      deliveredTotals.set(o.tipo_canal, (deliveredTotals.get(o.tipo_canal) ?? 0) + o.cantidad);
+    }
+    totalOrders.set(o.tipo_canal, (totalOrders.get(o.tipo_canal) ?? 0) + o.cantidad);
   }
 
+  const overall = Array.from(totalOrders.values()).reduce((sum, value) => sum + value, 0);
+
   return CHANNELS.map((ch) => {
-    const baseline = totals.get(ch.name) ?? 0;
+    const delivered = deliveredTotals.get(ch.name) ?? 0;
+    const baseline = delivered > 0 ? delivered : Math.round(overall / Math.max(1, CHANNELS.length));
     return {
       channel: ch.name,
       channelKey: ch.key,
@@ -140,6 +177,18 @@ export function generateDemandBase(
       }),
       { deliveredQty: 0, pendingQty: 0, postponedQty: 0 },
     );
+
+    const productName = skuOrders[0]?.producto_nombre ?? skuCode;
+    const channels = [...new Set(skuOrders.map((o) => o.tipo_canal))];
+    const periods = skuAggregates.length;
+
+    console.info("Generando demanda base:", {
+      skuCode,
+      productName,
+      channels,
+      periods,
+      source,
+    });
 
     bySku[skuCode] = {
       monthlyHistory: buildMonthlyHistory(orders, skuCode),
