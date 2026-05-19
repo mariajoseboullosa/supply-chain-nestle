@@ -7,7 +7,8 @@ import {
   Handshake, ShieldAlert, DollarSign, CalendarDays, Bot, Users, Lock,
   LogOut, Brush,
 } from "lucide-react";
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
+import { evaluateAlerts, filterAlerts } from "@/lib/alerts";
 
 const NAV = [
   { key: "dashboard", to: "/app", label: "Dashboard", icon: LayoutDashboard, exact: true },
@@ -29,6 +30,10 @@ export default function AppLayout() {
   const { productCode, setProductCode } = useProduct();
   const navigate = useNavigate();
   const path = useRouterState({ select: s => s.location.pathname });
+  const activeAlertCount = useMemo(() => {
+    const { alerts } = evaluateAlerts();
+    return filterAlerts(alerts, { skuCode: productCode }).length;
+  }, [productCode]);
 
   useEffect(() => {
     if (!user) navigate({ to: "/login" });
@@ -64,6 +69,15 @@ export default function AppLayout() {
               >
                 <Icon className="size-4 shrink-0" />
                 <span className="flex-1">{item.label}</span>
+                {item.key === "control-tower" && activeAlertCount > 0 && (
+                  <span
+                    className={`min-w-5 h-5 px-1.5 rounded-full text-[10px] font-semibold grid place-items-center ${
+                      active ? "bg-white text-nestle-red" : "bg-nestle-red text-white"
+                    }`}
+                  >
+                    {activeAlertCount > 99 ? "99+" : activeAlertCount}
+                  </span>
+                )}
                 {!allowed && <Lock className="size-3 opacity-70" />}
               </Link>
             );
