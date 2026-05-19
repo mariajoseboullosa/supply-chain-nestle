@@ -11,7 +11,7 @@ import {
 } from "@/lib/assistant";
 import { CLEANING_CHANGED_EVENT } from "@/lib/cleaning";
 import { DATA_CHANGED_EVENT } from "@/lib/data";
-import { INSIGHTS_CHANGED_EVENT } from "@/lib/insights";
+import { INSIGHTS_CHANGED_EVENT } from "@/lib/insights/store";
 import { MBP_CHANGED_EVENT } from "@/lib/mbp";
 import { FINANCIAL_SIM_CHANGED_EVENT } from "@/lib/financial";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";

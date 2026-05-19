@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import { loadJson, removeStorageItem, saveJson } from "@/lib/storage";
 import { DEMO_USERS, ROLE_ACCESS, type Role } from "./mock-data";
 
 export interface AuthUser {
@@ -24,10 +25,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    try {
-      const raw = localStorage.getItem(KEY);
-      if (raw) setUser(JSON.parse(raw));
-    } catch {}
+    const stored = loadJson<AuthUser | null>(KEY, null);
+    if (stored) setUser(stored);
     setReady(true);
   }, []);
 
@@ -35,12 +34,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const u = DEMO_USERS.find(x => x.username === username && x.password === password);
     if (!u) return { ok: false, error: "Usuario o contraseña incorrectos" };
     const au: AuthUser = { username: u.username, name: u.name, role: u.role as Role, roleLabel: u.roleLabel };
-    localStorage.setItem(KEY, JSON.stringify(au));
+    saveJson(KEY, au);
     setUser(au);
     return { ok: true };
   };
 
-  const logout = () => { localStorage.removeItem(KEY); setUser(null); };
+  const logout = () => {
+    removeStorageItem(KEY);
+    setUser(null);
+  };
 
   const canView = (k: string) => !user ? false : ROLE_ACCESS[user.role].canView.includes(k);
   const canEdit = (k: string) => !user ? false : ROLE_ACCESS[user.role].canEdit.includes(k);

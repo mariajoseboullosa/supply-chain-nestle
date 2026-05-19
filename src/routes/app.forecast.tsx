@@ -24,6 +24,13 @@ import {
   Cell,
 } from "recharts";
 import { useAuth } from "@/lib/auth";
+import {
+  buildForecastExportContext,
+  exportForecastCsv,
+  exportForecastExcel,
+  exportSapCsv,
+  exportErpJson,
+} from "@/lib/forecast";
 import { Play, Download } from "lucide-react";
 import { toast } from "sonner";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -118,6 +125,33 @@ function Forecast() {
     [modelResults, bestModel],
   );
 
+  const exportCtx = useMemo(
+    () =>
+      buildForecastExportContext(
+        product.code,
+        product.name,
+        activeModel?.modelName ?? bestModel?.modelName,
+      ),
+    [product.code, product.name, activeModel, bestModel, dataTick],
+  );
+
+  const handleExport = (type: "csv" | "excel" | "sap" | "erp") => {
+    if (!exportCtx) {
+      toast.error("No hay datos de forecast para exportar.");
+      return;
+    }
+    try {
+      if (type === "csv") exportForecastCsv(exportCtx);
+      else if (type === "excel") exportForecastExcel(exportCtx);
+      else if (type === "sap") exportSapCsv(exportCtx);
+      else exportErpJson(exportCtx);
+      const labels = { csv: "CSV", excel: "Excel", sap: "SAP", erp: "ERP JSON" };
+      toast.success(`Exportado a ${labels[type]}`);
+    } catch {
+      toast.error("Error al exportar el forecast.");
+    }
+  };
+
   const residualData = useMemo(() => {
     if (!bundle || !activeModel) return [];
     return bundle.monthlyHistory
@@ -152,26 +186,26 @@ function Forecast() {
               Correr todos
             </button>
             <button
-              onClick={() => toast.success("Exportado a Excel")}
+              onClick={() => handleExport("excel")}
               className="h-9 px-3 rounded-md border text-sm flex items-center gap-2"
             >
               <Download className="size-4" />
               Excel
             </button>
             <button
-              onClick={() => toast.success("Exportado a CSV")}
+              onClick={() => handleExport("csv")}
               className="h-9 px-3 rounded-md border text-sm"
             >
               CSV
             </button>
             <button
-              onClick={() => toast.success("Enviado a SAP")}
+              onClick={() => handleExport("sap")}
               className="h-9 px-3 rounded-md border text-sm"
             >
               SAP
             </button>
             <button
-              onClick={() => toast.success("Enviado a ERP")}
+              onClick={() => handleExport("erp")}
               className="h-9 px-3 rounded-md border text-sm"
             >
               ERP

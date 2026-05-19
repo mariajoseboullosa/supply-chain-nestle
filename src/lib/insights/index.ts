@@ -9,6 +9,9 @@ export type {
   ConsensusPublishState,
   ConsensusBreakdown,
   InsightFormInput,
+  ForecastVersionStatus,
+  PublishedForecastVersion,
+  PublishForecastInput,
 } from "./types";
 
 export {
@@ -17,9 +20,17 @@ export {
   canDeleteInsight,
   canApproveReject,
   canPublishForecast,
+  canEditPublishedForecast,
+  canModifySkuWhenPublished,
   getRoleArea,
   isReadOnlyRole,
 } from "./permissions";
+
+export {
+  validatePublishReadiness,
+  canOverridePublishBlockers,
+  type PublishValidationResult,
+} from "./publish";
 
 export {
   computeInsightDelta,
@@ -30,11 +41,18 @@ export {
 } from "./consensus";
 
 export {
+  getConsensusState,
+  getConsensusStates,
+  isForecastPublished,
+} from "./consensusState";
+
+export {
   getInsights,
   saveInsights,
   getAuditLog,
   appendAudit,
-  getConsensusState,
+  getPublishedVersions,
+  getPublishedVersionsForSku,
   publishForecast,
   createInsight,
   updateInsight,

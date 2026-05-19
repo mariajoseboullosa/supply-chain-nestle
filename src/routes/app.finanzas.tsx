@@ -23,7 +23,7 @@ import {
   type FinancialScenario,
   type FinancialSimulationParams,
 } from "@/lib/financial";
-import { INSIGHTS_CHANGED_EVENT } from "@/lib/insights";
+import { INSIGHTS_CHANGED_EVENT } from "@/lib/insights/store";
 
 export const Route = createFileRoute("/app/finanzas")({ component: Finanzas });
 

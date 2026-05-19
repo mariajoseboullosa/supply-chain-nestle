@@ -1,5 +1,5 @@
 import { applyInsightAdjustments } from "@/lib/dashboard/insights";
-import { getInsights, INSIGHTS_CHANGED_EVENT } from "@/lib/insights";
+import { getInsights, INSIGHTS_CHANGED_EVENT } from "@/lib/insights/store";
 import { DEMO_PRODUCTS, getSkuBundle } from "@/lib/mockData";
 import {
   applyElasticityToVolume,

@@ -1,8 +1,6 @@
-import {
-  computeInsightDelta,
-  getInsights,
-  type CollaborativeInsight,
-} from "@/lib/insights";
+import { computeInsightDelta } from "@/lib/insights/consensus";
+import { getInsights } from "@/lib/insights/store";
+import type { CollaborativeInsight } from "@/lib/insights/types";
 
 function matchesChannel(insight: CollaborativeInsight, channel?: string): boolean {
   if (!channel) return true;

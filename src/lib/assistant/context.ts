@@ -1,7 +1,7 @@
 import { hasCleanedDemand } from "@/lib/cleaning";
 import { hasLoadedDemand } from "@/lib/data";
 import { evaluateAlerts } from "@/lib/alerts";
-import { getInsights } from "@/lib/insights";
+import { getInsights } from "@/lib/insights/store";
 import { PRODUCTS } from "@/lib/mock-data";
 import type { AssistantContext } from "./types";
 

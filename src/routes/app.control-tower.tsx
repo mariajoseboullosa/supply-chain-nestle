@@ -10,7 +10,7 @@ import { useEffect, useMemo, useState } from "react";
 import { CLEANING_CHANGED_EVENT } from "@/lib/cleaning";
 import { FINANCIAL_SIM_CHANGED_EVENT } from "@/lib/financial";
 import { DATA_CHANGED_EVENT } from "@/lib/data";
-import { INSIGHTS_CHANGED_EVENT } from "@/lib/insights";
+import { INSIGHTS_CHANGED_EVENT } from "@/lib/insights/store";
 import { AlertTriangle, Plus, Bell } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";

@@ -2,7 +2,8 @@ import { evaluateAlerts } from "@/lib/alerts";
 import { buildDashboardData } from "@/lib/dashboard";
 import { buildFinancialDashboard, getFinancialSimulationParams } from "@/lib/financial";
 import { selectBestModel } from "@/lib/forecasting";
-import { formatImpactDisplay, getInsights } from "@/lib/insights";
+import { formatImpactDisplay } from "@/lib/insights/consensus";
+import { getInsights } from "@/lib/insights/store";
 import { computeMbpKpis, getMbpState } from "@/lib/mbp";
 import { withResolvedStatuses } from "@/lib/mbp/status";
 import { getAllSkuChannelContexts, getHistoryActuals } from "@/lib/mockData";
@@ -171,10 +172,13 @@ export function getRiskRanking(): {
   reasons: string[];
 }[] {
   const alerts = getAlertSummary();
-  const scores = new Map<string, { sku: string; score: number; reasons: string[] }>();
+  const scores = new Map<
+    string,
+    { sku: string; skuCode: string; score: number; reasons: string[] }
+  >();
 
   const add = (skuCode: string, sku: string, pts: number, reason: string) => {
-    const prev = scores.get(skuCode) ?? { sku, score: 0, reasons: [] };
+    const prev = scores.get(skuCode) ?? { sku, skuCode, score: 0, reasons: [] };
     prev.score += pts;
     if (!prev.reasons.includes(reason)) prev.reasons.push(reason);
     scores.set(skuCode, prev);

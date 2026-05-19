@@ -1,14 +1,26 @@
 import { DEMO_INSIGHTS } from "@/lib/mockData/catalog";
+import { loadJson, saveJson, setStorageItem } from "@/lib/storage";
+import {
+  CONSENSUS_KEY,
+  getConsensusState,
+  getConsensusStates,
+  isForecastPublished,
+} from "./consensusState";
 import type {
   AuditEntry,
   CollaborativeInsight,
   ConsensusPublishState,
   InsightFormInput,
+  PublishForecastInput,
+  PublishedForecastVersion,
 } from "./types";
+import { validatePublishReadiness } from "./publish";
+
+export { getConsensusState, getConsensusStates, isForecastPublished } from "./consensusState";
 
 const INSIGHTS_KEY = "nestle_dp_insights";
 const AUDIT_KEY = "nestle_dp_audit_log";
-const CONSENSUS_KEY = "nestle_dp_consensus";
+const VERSIONS_KEY = "nestle_dp_forecast_versions";
 const SEED_KEY = "nestle_dp_insights_seeded";
 
 export const INSIGHTS_CHANGED_EVENT = "nestle-insights-changed";
@@ -21,21 +33,6 @@ function emitChange(): void {
 
 function uid(prefix: string): string {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-}
-
-function loadJson<T>(key: string, fallback: T): T {
-  if (typeof window === "undefined") return fallback;
-  try {
-    const raw = localStorage.getItem(key);
-    if (!raw) return fallback;
-    return JSON.parse(raw) as T;
-  } catch {
-    return fallback;
-  }
-}
-
-function saveJson<T>(key: string, value: T): void {
-  localStorage.setItem(key, JSON.stringify(value));
 }
 
 function parseLegacyImpact(impact: string): {
@@ -97,7 +94,7 @@ function ensureSeeded(): void {
   if (localStorage.getItem(SEED_KEY)) return;
   const seeded = seedInsights();
   saveJson(INSIGHTS_KEY, seeded);
-  localStorage.setItem(SEED_KEY, "1");
+  setStorageItem(SEED_KEY, "1");
 }
 
 export function getInsights(): CollaborativeInsight[] {
@@ -126,17 +123,23 @@ export function appendAudit(entry: Omit<AuditEntry, "id" | "timestamp">): AuditE
   return full;
 }
 
-export function getConsensusStates(): ConsensusPublishState[] {
-  return loadJson<ConsensusPublishState[]>(CONSENSUS_KEY, []);
+export function getPublishedVersions(): PublishedForecastVersion[] {
+  return loadJson<PublishedForecastVersion[]>(VERSIONS_KEY, []);
 }
 
-export function getConsensusState(skuCode: string): ConsensusPublishState | null {
-  return getConsensusStates().find((s) => s.skuCode === skuCode) ?? null;
+export function getPublishedVersionsForSku(skuCode: string): PublishedForecastVersion[] {
+  return getPublishedVersions().filter((v) => v.skuCode === skuCode);
+}
+
+function savePublishedVersion(version: PublishedForecastVersion): void {
+  const versions = [version, ...getPublishedVersions()].slice(0, 100);
+  saveJson(VERSIONS_KEY, versions);
 }
 
 export function setConsensusPublished(
   skuCode: string,
   userName: string,
+  versionId?: string,
 ): ConsensusPublishState {
   const states = getConsensusStates().filter((s) => s.skuCode !== skuCode);
   const prev = getConsensusState(skuCode);
@@ -149,6 +152,9 @@ export function setConsensusPublished(
     publishedAt: new Date().toISOString(),
     publishedBy: userName,
     version: `v${versionNum.toFixed(1)}`,
+    status: "publicado",
+    locked: true,
+    latestVersionId: versionId,
   };
   saveJson(CONSENSUS_KEY, [...states, state]);
   emitChange();
@@ -258,16 +264,54 @@ function setApproval(
 }
 
 export function publishForecast(
-  skuCode: string,
-  userName: string,
-  productName: string,
-): ConsensusPublishState {
-  const state = setConsensusPublished(skuCode, userName);
-  appendAudit({
-    user: userName,
-    action: "publicacion",
-    description: `Forecast publicado ${state.version} · ${productName}`,
-    skuCode,
+  input: PublishForecastInput,
+  role: import("@/lib/mock-data").Role = "demand_planner",
+):
+  | { ok: true; state: ConsensusPublishState; version: PublishedForecastVersion }
+  | { ok: false; errors: string[] } {
+  const validation = validatePublishReadiness(input.skuCode, getInsights(), {
+    override: input.override,
+    role,
   });
-  return state;
+  if (!validation.canPublish) {
+    return { ok: false, errors: validation.blockers };
+  }
+
+  const prev = getConsensusState(input.skuCode);
+  const versionNum = prev?.version
+    ? parseFloat(prev.version.replace("v", "")) + 0.1
+    : 3.0;
+  const versionStr = `v${versionNum.toFixed(1)}`;
+  const now = new Date().toISOString();
+
+  const versionRecord: PublishedForecastVersion = {
+    id: uid("fv"),
+    version: versionStr,
+    fecha: now,
+    usuario: input.usuario,
+    sku: input.skuName,
+    skuCode: input.skuCode,
+    canal: input.canal,
+    baseline: input.baseline,
+    ajustesMarketing: input.ajustesMarketing,
+    ajustesVentas: input.ajustesVentas,
+    ajustesFinanzas: input.ajustesFinanzas,
+    forecastFinal: input.forecastFinal,
+    modeloUsado: input.modeloUsado,
+    estado: "publicado",
+    publishedAt: now,
+    publishedBy: input.usuario,
+  };
+
+  savePublishedVersion(versionRecord);
+  const state = setConsensusPublished(input.skuCode, input.usuario, versionRecord.id);
+
+  appendAudit({
+    user: input.usuario,
+    action: "publicacion",
+    description: `Forecast publicado ${state.version} · ${input.skuName}${input.override ? " (override DP)" : ""}`,
+    skuCode: input.skuCode,
+  });
+
+  return { ok: true, state, version: versionRecord };
 }

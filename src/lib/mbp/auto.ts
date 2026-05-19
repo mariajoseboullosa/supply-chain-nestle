@@ -5,7 +5,7 @@ import {
   detectOutliers,
   getSkuCleaning,
 } from "@/lib/cleaning";
-import { getInsights } from "@/lib/insights";
+import { getInsights } from "@/lib/insights/store";
 import { getConsensusStates } from "@/lib/insights/store";
 import { DEMO_PRODUCTS } from "@/lib/mockData/catalog";
 import { PRODUCTS } from "@/lib/mock-data";

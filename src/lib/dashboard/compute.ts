@@ -17,7 +17,7 @@ import {
   getSkuBundle,
   type SkuPlanningBundle,
 } from "@/lib/mockData";
-import { getInsights } from "@/lib/insights";
+import { getInsights } from "@/lib/insights/store";
 import { applyInsightAdjustments, sumInsightAdjustment } from "./insights";
 
 export interface DashboardChartPoint {

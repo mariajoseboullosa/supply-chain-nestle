@@ -2,6 +2,7 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { useAuth } from "@/lib/auth";
 import { DEMO_USERS } from "@/lib/mock-data";
+import { FormField, FormInput } from "@/components/ui-bits";
 
 export const Route = createFileRoute("/login")({ component: Login });
 
@@ -52,16 +53,20 @@ function Login() {
           <p className="text-sm text-muted-foreground mt-1">Accedé con tus credenciales corporativas</p>
 
           <form onSubmit={submit} className="mt-6 space-y-4">
-            <div>
-              <label className="text-sm font-medium">Usuario</label>
-              <input value={u} onChange={e=>setU(e.target.value)} className="mt-1 w-full h-10 px-3 rounded-md border border-input bg-background text-sm" placeholder="jgarcia" />
-            </div>
-            <div>
-              <label className="text-sm font-medium">Contraseña</label>
-              <input type="password" value={p} onChange={e=>setP(e.target.value)} className="mt-1 w-full h-10 px-3 rounded-md border border-input bg-background text-sm" placeholder="••••••" />
-            </div>
-            {err && <div className="text-sm text-destructive bg-destructive/10 px-3 py-2 rounded">{err}</div>}
-            <button className="w-full h-10 rounded-md bg-nestle-red text-white font-medium text-sm hover:opacity-90">Ingresar</button>
+            <FormField label="Usuario" required>
+              <FormInput value={u} onChange={(e) => setU(e.target.value)} placeholder="jgarcia" autoComplete="username" />
+            </FormField>
+            <FormField label="Contraseña" required>
+              <FormInput type="password" value={p} onChange={(e) => setP(e.target.value)} placeholder="••••••" error={!!err} autoComplete="current-password" />
+            </FormField>
+            {err && (
+              <div className="text-sm text-destructive bg-destructive/10 border border-destructive/20 px-3 py-2 rounded-md" role="alert">
+                {err}
+              </div>
+            )}
+            <button type="submit" className="w-full h-10 rounded-md bg-nestle-red text-white font-medium text-sm hover:opacity-90 transition-opacity">
+              Ingresar
+            </button>
           </form>
 
           <div className="mt-8">

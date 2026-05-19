@@ -1,3 +1,4 @@
+import { loadJson, saveJson } from "@/lib/storage";
 import type { FinancialSimulationParams } from "./types";
 
 const FINANCIAL_SIM_KEY = "nestle_financial_sim";
@@ -20,19 +21,17 @@ function emitChange(): void {
 }
 
 export function getFinancialSimulationParams(): FinancialSimulationParams {
-  if (typeof window === "undefined") return { ...DEFAULT_FINANCIAL_PARAMS };
-  try {
-    const raw = localStorage.getItem(FINANCIAL_SIM_KEY);
-    if (!raw) return { ...DEFAULT_FINANCIAL_PARAMS };
-    return { ...DEFAULT_FINANCIAL_PARAMS, ...JSON.parse(raw) };
-  } catch {
-    return { ...DEFAULT_FINANCIAL_PARAMS };
-  }
+  const stored = loadJson<Partial<FinancialSimulationParams> | null>(
+    FINANCIAL_SIM_KEY,
+    null,
+  );
+  if (!stored) return { ...DEFAULT_FINANCIAL_PARAMS };
+  return { ...DEFAULT_FINANCIAL_PARAMS, ...stored };
 }
 
 export function saveFinancialSimulationParams(
   params: FinancialSimulationParams,
 ): void {
-  localStorage.setItem(FINANCIAL_SIM_KEY, JSON.stringify(params));
+  saveJson(FINANCIAL_SIM_KEY, params);
   emitChange();
 }

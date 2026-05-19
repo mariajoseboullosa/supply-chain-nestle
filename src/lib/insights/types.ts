@@ -44,12 +44,50 @@ export interface AuditEntry {
   insightId?: string;
 }
 
+export type ForecastVersionStatus = "borrador" | "publicado" | "archivado";
+
+export interface PublishedForecastVersion {
+  id: string;
+  version: string;
+  fecha: string;
+  usuario: string;
+  sku: string;
+  skuCode: string;
+  canal: string;
+  baseline: number;
+  ajustesMarketing: number;
+  ajustesVentas: number;
+  ajustesFinanzas: number;
+  forecastFinal: number;
+  modeloUsado: string;
+  estado: ForecastVersionStatus;
+  publishedAt: string;
+  publishedBy: string;
+}
+
 export interface ConsensusPublishState {
   skuCode: string;
   published: boolean;
   publishedAt?: string;
   publishedBy?: string;
   version: string;
+  status?: ForecastVersionStatus;
+  locked?: boolean;
+  latestVersionId?: string;
+}
+
+export interface PublishForecastInput {
+  skuCode: string;
+  skuName: string;
+  canal: string;
+  usuario: string;
+  baseline: number;
+  ajustesMarketing: number;
+  ajustesVentas: number;
+  ajustesFinanzas: number;
+  forecastFinal: number;
+  modeloUsado: string;
+  override?: boolean;
 }
 
 export interface ConsensusBreakdown {

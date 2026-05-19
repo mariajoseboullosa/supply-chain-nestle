@@ -1,5 +1,5 @@
 import { evaluateAlerts } from "@/lib/alerts";
-import { getInsights } from "@/lib/insights";
+import { getInsights } from "@/lib/insights/store";
 import { getConsensusStates } from "@/lib/insights/store";
 import { PRODUCTS } from "@/lib/mock-data";
 import { withResolvedStatuses } from "./status";

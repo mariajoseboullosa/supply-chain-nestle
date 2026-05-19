@@ -1,3 +1,4 @@
+import { loadJson, saveJson } from "@/lib/storage";
 import type { ChatMessage } from "./types";
 
 const CHAT_KEY = "nestle_assistant_chat";
@@ -29,20 +30,13 @@ export function getDefaultMessages(): ChatMessage[] {
 }
 
 export function loadChatHistory(): ChatMessage[] {
-  if (typeof window === "undefined") return getDefaultMessages();
-  try {
-    const raw = localStorage.getItem(CHAT_KEY);
-    if (!raw) return getDefaultMessages();
-    const parsed = JSON.parse(raw) as ChatMessage[];
-    return parsed.length > 0 ? parsed : getDefaultMessages();
-  } catch {
-    return getDefaultMessages();
-  }
+  const parsed = loadJson<ChatMessage[]>(CHAT_KEY, []);
+  return parsed.length > 0 ? parsed : getDefaultMessages();
 }
 
 export function saveChatHistory(messages: ChatMessage[]): void {
   const trimmed = messages.slice(-50);
-  localStorage.setItem(CHAT_KEY, JSON.stringify(trimmed));
+  saveJson(CHAT_KEY, trimmed);
   emitChange();
 }
 

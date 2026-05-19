@@ -11,7 +11,26 @@ import {
   formatUnits,
 } from "@/lib/dashboard";
 import { ALERT_TYPE_LABELS } from "@/lib/alerts";
-import { PageHeader, KPI, Card, Badge, Semaforo } from "@/components/ui-bits";
+import {
+  PageHeader,
+  KPI,
+  Card,
+  Badge,
+  Semaforo,
+  DataTable,
+  SegmentedControl,
+  ChartContainer,
+  type DataTableColumn,
+} from "@/components/ui-bits";
+import {
+  CHART_AXIS,
+  CHART_COLORS,
+  CHART_GRID,
+  CHART_LEGEND,
+  CHART_MARGIN,
+  ChartTooltipContent,
+} from "@/lib/chart-theme";
+import type { DashboardWeeklyRow } from "@/lib/dashboard/compute";
 import {
   LineChart,
   Line,
@@ -27,7 +46,7 @@ import {
 import { useEffect, useMemo, useState } from "react";
 import { CLEANING_CHANGED_EVENT } from "@/lib/cleaning";
 import { DATA_CHANGED_EVENT } from "@/lib/data";
-import { INSIGHTS_CHANGED_EVENT } from "@/lib/insights";
+import { INSIGHTS_CHANGED_EVENT } from "@/lib/insights/store";
 import {
   CheckCircle2,
   Database,
@@ -172,7 +191,7 @@ function Dashboard() {
         </div>
       )}
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
         <KPI
           label="Demanda Base M+1"
           value={kpis ? formatUnits(kpis.demandBaseM1) : "—"}
@@ -256,168 +275,168 @@ function Dashboard() {
 
       <div className="grid lg:grid-cols-3 gap-4 mb-6">
         <Card title="Histórico vs Forecast vs Consenso" className="lg:col-span-2">
-          <ResponsiveContainer width="100%" height={260}>
-            <LineChart data={chartSeries}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#eee" />
-              <XAxis dataKey="mes" tick={{ fontSize: 12 }} />
-              <YAxis tick={{ fontSize: 12 }} />
-              <Tooltip />
-              <Legend />
-              <Line
-                type="monotone"
-                dataKey="real"
-                name="Real"
-                stroke="#1f6fbf"
-                strokeWidth={2}
-                dot={{ r: 3 }}
-              />
-              <Line
-                type="monotone"
-                dataKey="baseline"
-                name="Baseline"
-                stroke="#dc2626"
-                strokeWidth={2}
-                strokeDasharray="4 4"
-                dot={false}
-              />
-              <Line
-                type="monotone"
-                dataKey="consenso"
-                name="Consenso"
-                stroke="#16a34a"
-                strokeWidth={2}
-                dot={false}
-              />
-            </LineChart>
-          </ResponsiveContainer>
+          <ChartContainer height={260}>
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={chartSeries} margin={CHART_MARGIN}>
+                <CartesianGrid {...CHART_GRID} />
+                <XAxis dataKey="mes" {...CHART_AXIS} />
+                <YAxis {...CHART_AXIS} tickFormatter={(v) => Number(v).toLocaleString("es-AR")} />
+                <Tooltip content={<ChartTooltipContent />} />
+                <Legend {...CHART_LEGEND} />
+                <Line
+                  type="monotone"
+                  dataKey="real"
+                  name="Real"
+                  stroke={CHART_COLORS.actual}
+                  strokeWidth={2}
+                  dot={{ r: 3 }}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="baseline"
+                  name="Baseline"
+                  stroke={CHART_COLORS.baseline}
+                  strokeWidth={2}
+                  strokeDasharray="4 4"
+                  dot={false}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="consenso"
+                  name="Consenso"
+                  stroke={CHART_COLORS.consensus}
+                  strokeWidth={2}
+                  dot={false}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </ChartContainer>
         </Card>
         <Card title="Estacionalidad mensual">
-          <ResponsiveContainer width="100%" height={260}>
-            <BarChart data={chartSeries}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#eee" />
-              <XAxis dataKey="mes" tick={{ fontSize: 11 }} />
-              <YAxis tick={{ fontSize: 11 }} />
-              <Tooltip />
-              <Bar dataKey="baseline" name="Baseline" fill="#dc2626" radius={[4, 4, 0, 0]} />
-              <Bar dataKey="consenso" name="Consenso" fill="#16a34a" radius={[4, 4, 0, 0]} opacity={0.85} />
-            </BarChart>
-          </ResponsiveContainer>
+          <ChartContainer height={260}>
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={chartSeries} margin={CHART_MARGIN}>
+                <CartesianGrid {...CHART_GRID} />
+                <XAxis dataKey="mes" {...CHART_AXIS} />
+                <YAxis {...CHART_AXIS} tickFormatter={(v) => Number(v).toLocaleString("es-AR")} />
+                <Tooltip content={<ChartTooltipContent />} />
+                <Legend {...CHART_LEGEND} />
+                <Bar dataKey="baseline" name="Baseline" fill={CHART_COLORS.baseline} radius={[4, 4, 0, 0]} />
+                <Bar dataKey="consenso" name="Consenso" fill={CHART_COLORS.consensus} radius={[4, 4, 0, 0]} opacity={0.85} />
+              </BarChart>
+            </ResponsiveContainer>
+          </ChartContainer>
         </Card>
       </div>
 
       <Card
         title="Pronóstico 13 semanas"
         actions={
-          <div className="flex gap-1">
-            <button
-              onClick={() => setView("chart")}
-              className={`px-3 py-1 text-xs rounded ${view === "chart" ? "bg-nestle-red text-white" : "bg-muted"}`}
-            >
-              Gráfico
-            </button>
-            <button
-              onClick={() => setView("table")}
-              className={`px-3 py-1 text-xs rounded ${view === "table" ? "bg-nestle-red text-white" : "bg-muted"}`}
-            >
-              Tabla
-            </button>
-          </div>
+          <SegmentedControl
+            options={[
+              { value: "chart", label: "Gráfico" },
+              { value: "table", label: "Tabla" },
+            ]}
+            value={view}
+            onChange={setView}
+          />
         }
         className="mb-6"
       >
         {view === "chart" ? (
-          <ResponsiveContainer width="100%" height={240}>
-            <LineChart data={weekly}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#eee" />
-              <XAxis dataKey="semana" tick={{ fontSize: 12 }} />
-              <YAxis tick={{ fontSize: 12 }} />
-              <Tooltip />
-              <Legend />
-              <Line
-                dataKey="baseDem"
-                name="Base"
-                stroke="#dc2626"
-                strokeDasharray="4 4"
-                dot={false}
-              />
-              <Line
-                dataKey="consenso"
-                name="Consenso"
-                stroke="#16a34a"
-                strokeWidth={2}
-              />
-              <Line dataKey="real" name="Real" stroke="#1f6fbf" strokeWidth={2} />
-            </LineChart>
-          </ResponsiveContainer>
+          <ChartContainer height={240}>
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={weekly} margin={CHART_MARGIN}>
+                <CartesianGrid {...CHART_GRID} />
+                <XAxis dataKey="semana" {...CHART_AXIS} />
+                <YAxis {...CHART_AXIS} tickFormatter={(v) => Number(v).toLocaleString("es-AR")} />
+                <Tooltip content={<ChartTooltipContent />} />
+                <Legend {...CHART_LEGEND} />
+                <Line
+                  dataKey="baseDem"
+                  name="Base"
+                  stroke={CHART_COLORS.baseline}
+                  strokeDasharray="4 4"
+                  dot={false}
+                />
+                <Line
+                  dataKey="consenso"
+                  name="Consenso"
+                  stroke={CHART_COLORS.consensus}
+                  strokeWidth={2}
+                />
+                <Line dataKey="real" name="Real" stroke={CHART_COLORS.actual} strokeWidth={2} />
+              </LineChart>
+            </ResponsiveContainer>
+          </ChartContainer>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="text-left text-xs text-muted-foreground border-b">
-                <tr>
-                  {[
-                    "Semana",
-                    "Real",
-                    "Demanda Base",
-                    "Ajuste insights",
-                    "Consenso",
-                    "vs Base",
-                    "Estado",
-                  ].map((h) => (
-                    <th key={h} className="py-2 px-2 font-medium">
-                      {h}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {weekly.map((r) => (
-                  <tr key={r.semana} className="border-b last:border-0">
-                    <td className="py-2 px-2 font-medium">{r.semana}</td>
-                    <td className="py-2 px-2">{r.real ?? "—"}</td>
-                    <td className="py-2 px-2">{r.baseDem}</td>
-                    <td className="py-2 px-2">
-                      {r.ajuste > 0 ? `+${r.ajuste}` : r.ajuste}
-                    </td>
-                    <td className="py-2 px-2 font-medium">{r.consenso}</td>
-                    <td
-                      className={`py-2 px-2 ${r.vsBase >= 0 ? "text-success" : "text-destructive"}`}
-                    >
-                      {r.vsBase.toFixed(1)}%
-                    </td>
-                    <td className="py-2 px-2">
-                      <Semaforo estado={r.estado} />
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <WeeklyDataTable rows={weekly} />
         )}
       </Card>
 
       <Card title="Forecast por canal">
-        <ResponsiveContainer width="100%" height={260}>
-          <BarChart data={channels}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#eee" />
-            <XAxis dataKey="canal" tick={{ fontSize: 12 }} />
-            <YAxis tick={{ fontSize: 12 }} />
-            <Tooltip />
-            <Legend />
-            <Bar
-              dataKey="forecast"
-              name="Forecast base"
-              fill="#dc2626"
-              radius={[4, 4, 0, 0]}
-            />
-            <Bar
-              dataKey="consenso"
-              name="Consenso"
-              fill="#16a34a"
-              radius={[4, 4, 0, 0]}
-            />
-          </BarChart>
-        </ResponsiveContainer>
+        <ChartContainer height={260}>
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={channels} margin={CHART_MARGIN}>
+              <CartesianGrid {...CHART_GRID} />
+              <XAxis dataKey="canal" {...CHART_AXIS} />
+              <YAxis {...CHART_AXIS} tickFormatter={(v) => Number(v).toLocaleString("es-AR")} />
+              <Tooltip content={<ChartTooltipContent />} />
+              <Legend {...CHART_LEGEND} />
+              <Bar
+                dataKey="forecast"
+                name="Forecast base"
+                fill={CHART_COLORS.baseline}
+                radius={[4, 4, 0, 0]}
+              />
+              <Bar
+                dataKey="consenso"
+                name="Consenso"
+                fill={CHART_COLORS.consensus}
+                radius={[4, 4, 0, 0]}
+              />
+            </BarChart>
+          </ResponsiveContainer>
+        </ChartContainer>
       </Card>
     </div>
+  );
+}
+
+const weeklyColumns: DataTableColumn<DashboardWeeklyRow>[] = [
+  { key: "semana", header: "Semana", sortable: true, sortValue: (r) => r.semana, render: (r) => <span className="font-medium">{r.semana}</span> },
+  { key: "real", header: "Real", sortable: true, sortValue: (r) => r.real ?? -1, render: (r) => r.real ?? "—" },
+  { key: "baseDem", header: "Demanda Base", sortable: true, sortValue: (r) => r.baseDem, render: (r) => r.baseDem.toLocaleString("es-AR") },
+  {
+    key: "ajuste",
+    header: "Ajuste insights",
+    sortable: true,
+    sortValue: (r) => r.ajuste,
+    render: (r) => (r.ajuste > 0 ? `+${r.ajuste}` : r.ajuste),
+  },
+  { key: "consenso", header: "Consenso", sortable: true, sortValue: (r) => r.consenso, render: (r) => <span className="font-medium">{r.consenso.toLocaleString("es-AR")}</span> },
+  {
+    key: "vsBase",
+    header: "vs Base",
+    sortable: true,
+    sortValue: (r) => r.vsBase,
+    render: (r) => (
+      <span className={r.vsBase >= 0 ? "text-success" : "text-destructive"}>
+        {r.vsBase.toFixed(1)}%
+      </span>
+    ),
+  },
+  { key: "estado", header: "Estado", render: (r) => <Semaforo estado={r.estado} /> },
+];
+
+function WeeklyDataTable({ rows }: { rows: DashboardWeeklyRow[] }) {
+  return (
+    <DataTable
+      columns={weeklyColumns}
+      data={rows}
+      getRowKey={(r) => r.semana}
+      pageSize={13}
+      maxHeight="24rem"
+    />
   );
 }

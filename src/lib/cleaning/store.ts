@@ -1,3 +1,4 @@
+import { loadJson, saveJson } from "@/lib/storage";
 import { rowsToMonthlyHistory, rowsToWeeklyForecast } from "./build";
 import type { CleaningPersistedState, CleaningRow, SkuCleaningStore } from "./types";
 
@@ -12,18 +13,11 @@ function emitChange(): void {
 }
 
 function loadState(): CleaningPersistedState {
-  if (typeof window === "undefined") return { version: 1, bySku: {} };
-  try {
-    const raw = localStorage.getItem(CLEANING_KEY);
-    if (!raw) return { version: 1, bySku: {} };
-    return JSON.parse(raw) as CleaningPersistedState;
-  } catch {
-    return { version: 1, bySku: {} };
-  }
+  return loadJson<CleaningPersistedState>(CLEANING_KEY, { version: 1, bySku: {} });
 }
 
 function saveState(state: CleaningPersistedState): void {
-  localStorage.setItem(CLEANING_KEY, JSON.stringify(state));
+  saveJson(CLEANING_KEY, state);
   emitChange();
 }
 

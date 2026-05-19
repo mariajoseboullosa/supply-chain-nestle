@@ -23,7 +23,7 @@ import {
 } from "@/lib/mbp";
 import { CLEANING_CHANGED_EVENT } from "@/lib/cleaning";
 import { DATA_CHANGED_EVENT } from "@/lib/data";
-import { INSIGHTS_CHANGED_EVENT } from "@/lib/insights";
+import { INSIGHTS_CHANGED_EVENT } from "@/lib/insights/store";
 import { Calendar, CheckCircle2, Circle, Plus, Pencil } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";

@@ -4,14 +4,20 @@ import {
   createInsight,
   deleteInsight,
   getAuditLog,
-  getConsensusState,
   getInsights,
+  getPublishedVersionsForSku,
   INSIGHTS_CHANGED_EVENT,
   publishForecast,
   rejectInsight,
   updateInsight,
 } from "./store";
-import type { CollaborativeInsight, InsightFormInput } from "./types";
+import { getConsensusState, isForecastPublished } from "./consensusState";
+import type {
+  CollaborativeInsight,
+  InsightFormInput,
+  PublishForecastInput,
+} from "./types";
+import type { Role } from "@/lib/mock-data";
 
 export function useInsights() {
   const [insights, setInsights] = useState<CollaborativeInsight[]>(() =>
@@ -70,11 +76,13 @@ export function useInsights() {
       refresh();
       return r;
     },
-    publishForecast: (skuCode: string, userName: string, productName: string) => {
-      const r = publishForecast(skuCode, userName, productName);
+    publishForecast: (input: PublishForecastInput, role: Role) => {
+      const r = publishForecast(input, role);
       refresh();
       return r;
     },
     getPublishState: (skuCode: string) => getConsensusState(skuCode),
+    getPublishedVersions: (skuCode: string) => getPublishedVersionsForSku(skuCode),
+    isForecastPublished: (skuCode: string) => isForecastPublished(skuCode),
   };
 }

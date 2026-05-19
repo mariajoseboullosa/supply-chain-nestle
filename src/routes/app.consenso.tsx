@@ -2,6 +2,14 @@ import { createFileRoute } from "@tanstack/react-router";
 import { PageHeader, Card, Badge, KPI, LockedNotice } from "@/components/ui-bits";
 import { useProduct } from "@/lib/product-context";
 import { getSkuBundle } from "@/lib/mockData";
+import { buildDashboardData } from "@/lib/dashboard/compute";
+import {
+  buildForecastExportContext,
+  exportForecastCsv,
+  exportForecastExcel,
+  exportSapCsv,
+  exportErpJson,
+} from "@/lib/forecast";
 import {
   useInsights,
   computeConsensusBreakdown,
@@ -9,11 +17,24 @@ import {
   formatImpactDisplay,
   canApproveReject,
   canPublishForecast,
+  canEditPublishedForecast,
+  canOverridePublishBlockers,
+  validatePublishReadiness,
 } from "@/lib/insights";
-import { Check, X, Send, History } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Check, X, Send, History, Download } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/auth";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 
 export const Route = createFileRoute("/app/consenso")({ component: Consenso });
 
@@ -33,9 +54,15 @@ function formatAuditTime(iso: string): string {
 function Consenso() {
   const { product } = useProduct();
   const { user, canEdit } = useAuth();
+  const role = user?.role ?? "marketing";
   const editable = canEdit("consenso");
-  const canApprove = canApproveReject(user?.role ?? "marketing");
-  const canPublish = canPublishForecast(user?.role ?? "marketing");
+  const canApprove = canApproveReject(role);
+  const canPublish = canPublishForecast(role);
+  const canEditPublished = canEditPublishedForecast(role);
+  const canOverride = canOverridePublishBlockers(role);
+
+  const [publishOpen, setPublishOpen] = useState(false);
+  const [overrideBlockers, setOverrideBlockers] = useState(false);
 
   const {
     insights,
@@ -44,9 +71,15 @@ function Consenso() {
     rejectInsight,
     publishForecast,
     getPublishState,
+    getPublishedVersions,
+    isForecastPublished,
   } = useInsights();
 
   const bundle = useMemo(() => getSkuBundle(product.code), [product.code]);
+  const dashboard = useMemo(
+    () => buildDashboardData(product.code),
+    [product.code, insights],
+  );
 
   const baseline = useMemo(() => {
     if (!bundle) return 0;
@@ -65,34 +98,103 @@ function Consenso() {
   );
 
   const publishState = getPublishState(product.code);
+  const published = isForecastPublished(product.code);
+  const versions = getPublishedVersions(product.code);
+  const isLocked = published && !canEditPublished;
+
+  const publishValidation = useMemo(
+    () =>
+      validatePublishReadiness(product.code, insights, {
+        role,
+        override: overrideBlockers,
+      }),
+    [product.code, insights, role, overrideBlockers],
+  );
 
   const skuAudit = useMemo(
     () =>
-      auditLog.filter(
-        (a) => !a.skuCode || a.skuCode === product.code,
-      ),
+      auditLog.filter((a) => !a.skuCode || a.skuCode === product.code),
     [auditLog, product.code],
   );
 
+  const exportCtx = useMemo(
+    () =>
+      buildForecastExportContext(
+        product.code,
+        product.name,
+        dashboard?.kpis.modelName,
+      ),
+    [product.code, product.name, dashboard?.kpis.modelName, insights, publishState],
+  );
+
+  const handleExport = (type: "csv" | "excel" | "sap" | "erp") => {
+    if (!exportCtx) {
+      toast.error("No hay datos de forecast para exportar.");
+      return;
+    }
+    try {
+      if (type === "csv") exportForecastCsv(exportCtx);
+      else if (type === "excel") exportForecastExcel(exportCtx);
+      else if (type === "sap") exportSapCsv(exportCtx);
+      else exportErpJson(exportCtx);
+      const labels = { csv: "CSV", excel: "Excel", sap: "SAP", erp: "ERP JSON" };
+      toast.success(`Exportado a ${labels[type]}`);
+    } catch {
+      toast.error("Error al exportar el forecast.");
+    }
+  };
+
   const handleApprove = (id: string) => {
-    if (!user || !canApprove) return;
+    if (!user || !canApprove || isLocked) return;
     approveInsight(id, user.name);
     toast.success("Aprobado");
   };
 
   const handleReject = (id: string) => {
-    if (!user || !canApprove) return;
+    if (!user || !canApprove || isLocked) return;
     rejectInsight(id, user.name);
     toast.error("Rechazado");
   };
 
-  const handlePublish = () => {
+  const handleConfirmPublish = () => {
     if (!user || !canPublish) return;
-    const state = publishForecast(product.code, user.name, product.name);
-    toast.success(`Forecast publicado ${state.version} a ERP/SAP`);
+    if (!publishValidation.canPublish) {
+      toast.error(publishValidation.blockers[0] ?? "No se puede publicar");
+      return;
+    }
+
+    const result = publishForecast(
+      {
+        skuCode: product.code,
+        skuName: product.name,
+        canal: "Todos",
+        usuario: user.name,
+        baseline: breakdown.baseline,
+        ajustesMarketing: breakdown.marketing,
+        ajustesVentas: breakdown.ventas,
+        ajustesFinanzas: breakdown.finanzas,
+        forecastFinal: breakdown.final,
+        modeloUsado: dashboard?.kpis.modelName ?? "Baseline estadístico",
+        override: overrideBlockers,
+      },
+      role,
+    );
+
+    setPublishOpen(false);
+    setOverrideBlockers(false);
+
+    if (!result.ok) {
+      toast.error(result.errors[0] ?? "No se pudo publicar");
+      return;
+    }
+
+    toast.success(
+      `Forecast ${result.state.version} publicado · ${user.name} · ${formatAuditTime(result.state.publishedAt ?? "")}`,
+    );
   };
 
-  const fmtDelta = (n: number) => (n >= 0 ? `+${n.toLocaleString("es-AR")}` : n.toLocaleString("es-AR"));
+  const fmtDelta = (n: number) =>
+    n >= 0 ? `+${n.toLocaleString("es-AR")}` : n.toLocaleString("es-AR");
 
   return (
     <div>
@@ -101,14 +203,42 @@ function Consenso() {
         subtitle={`Versión activa: ${publishState?.version ?? "v3.2"} · ${product.name}`}
         actions={
           <>
-            {publishState?.published && (
+            {published && (
               <Badge tone="good">
-                Publicado {publishState.publishedAt ? formatAuditTime(publishState.publishedAt) : ""}
+                Publicado · {publishState?.publishedBy} ·{" "}
+                {publishState?.publishedAt
+                  ? formatAuditTime(publishState.publishedAt)
+                  : ""}
               </Badge>
             )}
             <button
+              onClick={() => handleExport("csv")}
+              className="h-9 px-3 rounded-md border text-sm flex items-center gap-2"
+            >
+              <Download className="size-4" />
+              CSV
+            </button>
+            <button
+              onClick={() => handleExport("excel")}
+              className="h-9 px-3 rounded-md border text-sm"
+            >
+              Excel
+            </button>
+            <button
+              onClick={() => handleExport("sap")}
+              className="h-9 px-3 rounded-md border text-sm"
+            >
+              SAP
+            </button>
+            <button
+              onClick={() => handleExport("erp")}
+              className="h-9 px-3 rounded-md border text-sm"
+            >
+              ERP
+            </button>
+            <button
               disabled={!editable || !canPublish}
-              onClick={handlePublish}
+              onClick={() => setPublishOpen(true)}
               className="h-9 px-3 rounded-md bg-nestle-green text-white text-sm flex items-center gap-2 disabled:opacity-50"
             >
               <Send className="size-4" />
@@ -120,6 +250,11 @@ function Consenso() {
       {!editable && (
         <div className="mb-4">
           <LockedNotice feature="consenso" />
+        </div>
+      )}
+      {isLocked && (
+        <div className="mb-4 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          Forecast publicado — edición bloqueada. Solo Demand Planner puede modificar esta versión.
         </div>
       )}
 
@@ -232,7 +367,7 @@ function Consenso() {
                 </div>
                 <div className="flex gap-2">
                   <button
-                    disabled={!editable || !canApprove}
+                    disabled={!editable || !canApprove || isLocked}
                     onClick={() => handleApprove(ins.id)}
                     className="h-8 px-3 rounded bg-success text-white text-xs flex items-center gap-1 disabled:opacity-50"
                   >
@@ -240,7 +375,7 @@ function Consenso() {
                     Aprobar
                   </button>
                   <button
-                    disabled={!editable || !canApprove}
+                    disabled={!editable || !canApprove || isLocked}
                     onClick={() => handleReject(ins.id)}
                     className="h-8 px-3 rounded bg-destructive text-white text-xs flex items-center gap-1 disabled:opacity-50"
                   >
@@ -261,19 +396,39 @@ function Consenso() {
               <div>
                 <div className="font-medium text-sm flex items-center gap-2">
                   {publishState?.version ?? "v3.2"}
-                  <Badge tone="good">Activa</Badge>
+                  <Badge tone={published ? "good" : "warn"}>
+                    {published ? "Publicado" : "Borrador"}
+                  </Badge>
                 </div>
                 <div className="text-xs text-muted-foreground">
                   Consenso con insights aprobados
                 </div>
                 <div className="text-xs text-muted-foreground">
-                  {publishState?.publishedBy ?? "Demand Planner"} ·{" "}
+                  {publishState?.publishedBy ?? "—"} ·{" "}
                   {publishState?.publishedAt
                     ? formatAuditTime(publishState.publishedAt)
                     : "Pendiente de publicación"}
                 </div>
               </div>
             </div>
+            {versions.slice(0, 5).map((v) => (
+              <div
+                key={v.id}
+                className="flex items-start justify-between p-2 rounded border opacity-80"
+              >
+                <div>
+                  <div className="font-medium text-sm">
+                    {v.version} · {v.estado}
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    {v.usuario} · {formatAuditTime(v.fecha)} · {v.canal}
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    Final: {v.forecastFinal.toLocaleString("es-AR")} u · {v.modeloUsado}
+                  </div>
+                </div>
+              </div>
+            ))}
             {skuAudit
               .filter((a) => a.action === "publicacion")
               .slice(0, 3)
@@ -312,6 +467,57 @@ function Consenso() {
           </div>
         </Card>
       </div>
+
+      <AlertDialog open={publishOpen} onOpenChange={setPublishOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Publicar forecast consenso</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-3 text-left">
+                <p>
+                  Se publicará la versión <strong>{publishState?.version ?? "nueva"}</strong> de{" "}
+                  <strong>{product.name}</strong> con forecast final de{" "}
+                  <strong>{breakdown.final.toLocaleString("es-AR")} u</strong>.
+                </p>
+                {publishValidation.blockers.length > 0 && (
+                  <ul className="text-destructive text-sm list-disc pl-4 space-y-1">
+                    {publishValidation.blockers.map((b) => (
+                      <li key={b}>{b}</li>
+                    ))}
+                  </ul>
+                )}
+                {publishValidation.warnings.length > 0 && (
+                  <ul className="text-amber-700 text-sm list-disc pl-4 space-y-1">
+                    {publishValidation.warnings.map((w) => (
+                      <li key={w}>{w}</li>
+                    ))}
+                  </ul>
+                )}
+                {canOverride && publishValidation.blockers.length > 0 && (
+                  <label className="flex items-center gap-2 text-sm cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={overrideBlockers}
+                      onChange={(e) => setOverrideBlockers(e.target.checked)}
+                    />
+                    Override como Demand Planner (publicar de todos modos)
+                  </label>
+                )}
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={!publishValidation.canPublish}
+              onClick={handleConfirmPublish}
+              className="bg-nestle-green hover:bg-nestle-green/90"
+            >
+              Confirmar publicación
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

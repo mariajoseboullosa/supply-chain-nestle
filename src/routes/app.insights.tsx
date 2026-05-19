@@ -1,5 +1,14 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { PageHeader, Badge, LockedNotice } from "@/components/ui-bits";
+import {
+  PageHeader,
+  Badge,
+  LockedNotice,
+  TabBar,
+  FormField,
+  FormSelect,
+  FormInput,
+  FormTextarea,
+} from "@/components/ui-bits";
 import { DEMO_CHANNELS, DEMO_PRODUCTS } from "@/lib/mockData";
 import {
   useInsights,
@@ -9,6 +18,7 @@ import {
   canDeleteInsight,
   canEditInsight,
   getRoleArea,
+  isForecastPublished,
   isReadOnlyRole,
   parseImpactInput,
   type CollaborativeInsight,
@@ -125,11 +135,16 @@ function Insights() {
       role === "demand_planner" ? String(f.get("area")) : defaultArea
     ) as InsightArea;
 
+    if (!product?.code) {
+      toast.error("Seleccioná un SKU válido de la lista.");
+      return;
+    }
+
     const input: InsightFormInput = {
       area,
       responsable: user.name,
       sku: skuName,
-      skuCode: product?.code ?? "",
+      skuCode: product.code,
       channel: String(f.get("channel") ?? "Todos"),
       cliente: String(f.get("cliente") ?? ""),
       fecha_inicio: String(f.get("fecha_inicio") ?? ""),
@@ -152,8 +167,12 @@ function Insights() {
       updateInsight(editing.id, input, user.name);
       toast.success("Insight actualizado");
     } else {
-      if (!canCreateInsight(role, area)) {
-        toast.error("No tenés permiso para crear en esta área.");
+      if (!canCreateInsight(role, area, input.skuCode)) {
+        toast.error(
+          isForecastPublished(input.skuCode)
+            ? "Forecast publicado: solo Demand Planner puede agregar insights."
+            : "No tenés permiso para crear en esta área.",
+        );
         return;
       }
       createInsight(input, user.name);
@@ -229,28 +248,26 @@ function Insights() {
         </div>
       )}
 
-      <div className="flex gap-1 mb-4 border-b">
-        {(["todos", "Marketing", "Ventas", "Finanzas"] as const).map((t) => (
-          <button
-            key={t}
-            onClick={() => setTab(t)}
-            className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px ${
-              tab === t
-                ? "border-nestle-red text-nestle-red"
-                : "border-transparent text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            {t === "todos" ? "Todos" : t}
-          </button>
-        ))}
-      </div>
+      <TabBar
+        tabs={[
+          { id: "todos", label: "Todos" },
+          { id: "Marketing", label: "Marketing" },
+          { id: "Ventas", label: "Ventas" },
+          { id: "Finanzas", label: "Finanzas" },
+        ]}
+        active={tab}
+        onChange={(id) => setTab(id as Tab)}
+      />
 
       <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-6">
         {filtered.map((it) => {
           const positivo = it.impacto_valor >= 0;
           const impactLabel = formatImpactDisplay(it);
           return (
-            <div key={it.id} className="rounded-lg border bg-card p-4 shadow-sm">
+            <div
+              key={it.id}
+              className="rounded-lg border bg-card p-4 shadow-sm transition-shadow duration-200 hover:shadow-md"
+            >
               <div className="flex items-start justify-between gap-2">
                 <div>
                   <Badge tone={areaBadgeTone(it.area)}>{it.area}</Badge>
@@ -336,25 +353,21 @@ function Insights() {
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="bg-card rounded-lg p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto"
+            className="bg-card rounded-lg border shadow-xl p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto"
           >
-            <h3 className="font-semibold mb-4">
-              {editing ? "Editar insight" : "Nuevo insight"} — {formArea}
+            <h3 className="font-semibold text-lg mb-1">
+              {editing ? "Editar insight" : "Nuevo insight"}
             </h3>
-            <form onSubmit={saveInsight} className="space-y-3 text-sm">
+            <p className="text-sm text-muted-foreground mb-5">{formArea}</p>
+            <form onSubmit={saveInsight} className="space-y-4 text-sm">
               {role === "demand_planner" && (
-                <label className="block">
-                  Área
-                  <select
-                    name="area"
-                    defaultValue={formArea}
-                    className="mt-1 w-full h-9 px-2 rounded border"
-                  >
+                <FormField label="Área" required>
+                  <FormSelect name="area" defaultValue={formArea}>
                     <option value="Marketing">Marketing</option>
                     <option value="Ventas">Ventas</option>
                     <option value="Finanzas">Finanzas</option>
-                  </select>
-                </label>
+                  </FormSelect>
+                </FormField>
               )}
               <div className="grid grid-cols-2 gap-3">
                 <label>

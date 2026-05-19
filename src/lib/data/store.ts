@@ -1,3 +1,4 @@
+import { loadJson, removeStorageItem, saveJson, setStorageItem } from "@/lib/storage";
 import type {
   ColumnMapping,
   DataSource,
@@ -18,19 +19,8 @@ function emitChange(): void {
   }
 }
 
-function loadJson<T>(key: string, fallback: T): T {
-  if (typeof window === "undefined") return fallback;
-  try {
-    const raw = localStorage.getItem(key);
-    if (!raw) return fallback;
-    return JSON.parse(raw) as T;
-  } catch {
-    return fallback;
-  }
-}
-
-function saveJson<T>(key: string, value: T): void {
-  localStorage.setItem(key, JSON.stringify(value));
+function persistJson<T>(key: string, value: T): void {
+  saveJson(key, value);
   emitChange();
 }
 
@@ -39,7 +29,7 @@ export function getStoredOrders(): OrderRecord[] {
 }
 
 export function saveOrders(orders: OrderRecord[]): void {
-  saveJson(ORDERS_KEY, orders);
+  persistJson(ORDERS_KEY, orders);
 }
 
 export function getColumnMapping(): ColumnMapping {
@@ -47,7 +37,7 @@ export function getColumnMapping(): ColumnMapping {
 }
 
 export function saveColumnMapping(mapping: ColumnMapping): void {
-  saveJson(MAPPING_KEY, mapping);
+  persistJson(MAPPING_KEY, mapping);
 }
 
 export function getGeneratedDemand(): GeneratedDemandStore | null {
@@ -55,7 +45,7 @@ export function getGeneratedDemand(): GeneratedDemandStore | null {
 }
 
 export function saveGeneratedDemand(demand: GeneratedDemandStore): void {
-  saveJson(DEMAND_KEY, demand);
+  persistJson(DEMAND_KEY, demand);
 }
 
 export function getDataSource(): DataSource {
@@ -63,8 +53,8 @@ export function getDataSource(): DataSource {
 }
 
 export function setDataSource(source: DataSource): void {
-  if (source == null) localStorage.removeItem(SOURCE_KEY);
-  else localStorage.setItem(SOURCE_KEY, source);
+  if (source == null) removeStorageItem(SOURCE_KEY);
+  else setStorageItem(SOURCE_KEY, source);
   emitChange();
 }
 
@@ -74,10 +64,10 @@ export function hasLoadedDemand(): boolean {
 }
 
 export function clearLoadedData(): void {
-  localStorage.removeItem(ORDERS_KEY);
-  localStorage.removeItem(MAPPING_KEY);
-  localStorage.removeItem(DEMAND_KEY);
-  localStorage.removeItem(SOURCE_KEY);
+  removeStorageItem(ORDERS_KEY);
+  removeStorageItem(MAPPING_KEY);
+  removeStorageItem(DEMAND_KEY);
+  removeStorageItem(SOURCE_KEY);
   emitChange();
 }
 
