@@ -71,7 +71,7 @@ function ControlTower() {
   return (
     <div>
       <PageHeader
-        title="Control Tower"
+        title="Alertas"
         subtitle="Alertas en tiempo real y reglas de monitoreo"
         actions={
           editable && (

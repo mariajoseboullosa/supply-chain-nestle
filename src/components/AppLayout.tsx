@@ -19,7 +19,7 @@ const NAV = [
   { key: "forecast", to: "/app/forecast", label: "Forecast", icon: LineChart },
   { key: "insights", to: "/app/insights", label: "Insights", icon: Lightbulb },
   { key: "consenso", to: "/app/consenso", label: "Consenso", icon: Handshake },
-  { key: "control-tower", to: "/app/control-tower", label: "Control Tower", icon: ShieldAlert },
+  { key: "control-tower", to: "/app/control-tower", label: "Alertas", icon: ShieldAlert },
   { key: "finanzas", to: "/app/finanzas", label: "Finanzas", icon: DollarSign },
   { key: "mbp", to: "/app/mbp", label: "MBP", icon: CalendarDays },
   { key: "ai", to: "/app/ai", label: "AI Assistant", icon: Bot },
